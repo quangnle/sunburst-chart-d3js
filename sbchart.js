@@ -114,7 +114,7 @@ let model = {
 						},
 						{
 							"name" : "BUDWWEISER",
-							"value" : "2570"
+							"value" : "25700"
 						}
 					]
 				}
