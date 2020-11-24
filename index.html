@@ -1,0 +1,271 @@
+<!DOCTYPE html>  
+<html lang="en">  
+  
+<head>  
+    <meta charset="UTF-8" />  
+    <meta name="viewport"
+          content="width=device-width,  
+                  initial-scale=1.0"/>  
+   
+    <!--Fetching from CDN of D3.js -->
+    <script src= "https://d3js.org/d3.v4.min.js"> </script> 
+        <script src= "https://d3js.org/d3-selection.v1.min.js"> </script> 
+	<script src= "sbchart.js"> </script> 
+  
+</head> 
+  
+<body>  
+    <svg width="1000" height="1000"> </svg> 
+  
+    <script>  
+	
+	// data to bind into the sunburstchart
+		
+		let removeSVG = function(){
+			d3.select("svg").selectAll("*").remove()
+		}
+		const traverse = function(parent, name, action, data){
+			if (parent.children == null) {
+				return;
+			}
+			var i =0
+			for(i;i<parent.children.length;i++){
+				console.log(parent.children[i].name)
+				if (parent.children[i].name == name) {
+					let t = ''
+					if (action == "delete") {
+						parent.children.splice(i,1)
+					} 
+					else if (action == "add") {
+						parent.children.splice(i+1,0,data)
+					}
+					// console.log("model:", children)
+					return;
+				}
+				else{traverse(parent.children[i], name, action, data)}	
+
+			}
+		}
+		// center coords
+		var cx = 300;
+		var cy = 300;
+		var chosenSector = ''
+		var sector =''
+		var isDown = false;
+		var x0=0;
+		var y0=0;
+		let data = ''
+		const draw= function(){
+			removeSVG()
+			var chart = new SBChart(cx,cy,100); // center coords and radius of each level
+			// bind data into the chart
+			chart.bind(model);
+			// create svg graphic object to draw
+			var svg = d3.select("svg")
+				.on("mousedown", function(){
+					let mouse = d3.mouse(this);
+					isDown = true; 
+					console.log(mouse[0] + " " + mouse[1]);
+					if(y0==0 && x0==0){
+						x0= mouse[0];
+						y0= mouse[1]
+					}
+					if (chosenSector != '' && chosenSector.slice(0,5)!="blank"){
+						let p = d3.select('#'+chosenSector);
+						let tx = mouse[0] - x0;
+						let ty = mouse[1] - y0;
+						p.attr("transform", "translate(" + tx + "," + ty + ")");
+						for	(let i =0; i < chart.arcs.length; i++){
+							arc = chart.arcs[i];
+							if(arc.name == chosenSector){
+								var label = d3.arc()
+											.outerRadius(arc.outerRadius)
+											.innerRadius(arc.innerRadius);
+								if(data==''){
+									data = {
+											"name": arc.name,
+											"value": ""+ arc.value,
+											"children": arc.children
+										}
+								}
+								a = label.centroid(arc);
+								a[0] += tx
+								a[1] += ty
+								d3.select('#text'+chosenSector)
+								.attr("transform", "translate(" + a+ ")");							break;
+							}
+						}
+					}
+				})
+				.on("mousemove", function(){
+					if (isDown){
+						let mouse = d3.mouse(this);
+						if (chosenSector != ''&& chosenSector.slice(0,5)!="blank"){
+							let p = d3.select('#'+chosenSector);
+							let tx = mouse[0] - x0;
+							let ty = mouse[1] - y0;
+							p.attr("transform", "translate(" + tx + "," + ty + ")");
+						for	(let i =0; i < chart.arcs.length; i++){
+							arc = chart.arcs[i];
+							if(arc.name == chosenSector){
+								var label = d3.arc()
+											.outerRadius(arc.outerRadius)
+											.innerRadius(arc.innerRadius);
+								a = label.centroid(arc);
+								a[0] += tx
+								a[1] += ty
+								// var rot = function(){
+								// 	a = 180 / Math.PI * (arc.startAngle+arc.endAngle)/2 -90;
+								// 	if(a>90) return a+180;
+								// 	else return a;
+								// }
+								d3.select('#text'+chosenSector)
+								.attr("transform", "translate(" + a + ")");
+								break;
+							}
+						}
+						console.log(tx + " " + ty);
+					}
+				}
+							// console.log(mouse[0] + " " + mouse[1]);				
+			})
+				.on("mouseup", function(){
+					isDown = false;
+					let mouse = d3.mouse(this);
+					x = mouse[0]
+					y = mouse[1]
+					if (sector.slice(0,5)=="blank"){
+						console.log(addSector)
+						var addSector = sector.slice(5,sector.length);
+						traverse(model,chosenSector,"delete");
+
+						if(data != '')
+							traverse(model,addSector,"add",data);
+						console.log("redraw")
+						draw()
+					}
+					else {
+						if (chosenSector !=''){
+							let p = d3.select('#'+chosenSector);
+							p.attr("transform", "translate(" + 0 + "," + 0 + ")");
+							for	(let i =0; i < chart.arcs.length; i++){
+								// find data of sector moveon, delete chosenSector
+								arc = chart.arcs[i];
+								if(arc.name == chosenSector){
+									var label = d3.arc()
+												.outerRadius(arc.outerRadius)
+												.innerRadius(arc.innerRadius);
+									var rot = function(){
+									a = 180 / Math.PI * (arc.startAngle+arc.endAngle)/2 -90;
+									if(a>90) return a+180;
+									else return a;
+									}
+									a = label.centroid(arc);
+									d3.select('#text'+chosenSector)
+									.attr("transform", "translate(" + a + ")" +"rotate(" + rot() + ")")
+									break;
+								}
+							}
+		
+						}
+					}
+					x0=0;
+					y0=0;
+					chosenSector = ''
+					sector = ''
+					data = ''
+					
+				})
+				.append("g") 
+				.attr("transform", "translate(" +cx+ ","+cy+")");; // transition to cx, cy 
+			
+			// create new chart		
+		
+			
+			// after binding, the chart will generate arc objects in its arcs property
+			// then we pick each of them to draw on to the screen
+			for	(let i =0; i < chart.arcs.length; i++){
+				let arc = chart.arcs[i];
+				if(arc.name.slice(0,5)!="blank"){
+					svg.append("path") 
+						.attr("id", arc.name)
+						.attr("class", "arc") // set style name as "arc"
+						.attr("d", arc.item)
+						.on('mousedown',function(){
+							chosenSector = arc.name
+						})
+						.attr("startAngle",arc.startAngle)
+						.attr("endAngle",arc.endAngle)
+						.style("fill" , "#9ad3bc")
+						.style("stroke" ,"#f3eac2")
+						;
+					var label = d3.arc()
+							.outerRadius(arc.outerRadius)
+							.innerRadius(arc.innerRadius);
+					var rot = function(){
+						a = 180 / Math.PI * (arc.startAngle+arc.endAngle)/2 -90;
+						if(a>90) return a+180;
+						else return a;
+					}
+					a = label.centroid(arc)
+					svg.append("text")
+						.attr("id", "text"+arc.name)
+						.attr("class", "text")
+						.text(function() { return arc.name +": "+ arc.value})
+						.attr("text-anchor", "middle")
+						.attr("transform", "translate(" + a + ")" +"rotate(" + rot() + ")")
+						.style("font-size", "10px")
+				}
+
+			}
+			for	(let i =0; i < chart.arcs.length; i++){
+				let arc = chart.arcs[i];
+				if(arc.name.slice(0,5)=="blank"){
+				svg.append("path") 
+						.attr("id", arc.name)
+						.attr("class", "blank") // set style name as "arc"
+						.attr("d", arc.item)
+						.on('mouseup',function(){
+							sector = arc.name
+						})
+						.attr("startAngle",arc.startAngle)
+						.attr("endAngle",arc.endAngle)
+						.style("fill","#f3eac2")
+						// .style("stroke","#000")
+					}
+			}
+		}
+		draw()	
+		// this.findSector = function(x,y){
+		// 	deltax = x - cx;
+		// 	deltay = y - cy;
+		// 	distance = Math.sqrt(deltax*deltax + deltay*deltay)
+		// 	level = Math.floor(distance/100)
+		// 	// vectorj = (0,1)
+		// 	// vectorSector = (deltax,deltay)
+		// 	deltaAngle = Math.atan2(deltax,1-deltay)
+		// 	if (deltaAngle<0){
+		// 		deltaAngle = deltaAngle +2*Math.PI
+		// 	}
+		// 	// console.log(deltaAngle)
+		// 	//the commands below not right with new version
+		// 	gapSize = 0.05
+		// 	for	(let i =0; i < chart.arcs.length; i++){
+		// 		let arc = chart.arcs[i];
+		// 		if(arc.endAngle+gapSize>deltaAngle && arc.endAngle-gapSize<deltaAngle && level==arc.level){
+		// 			result = arc.name
+		// 			return result
+		// 		}
+		// 	}
+		// }
+        // let ps = document.querySelectorAll(".arc"); // get all elements that have style name as 'arc'
+		// // apply the style onto each element
+        // for	(var i = 0; i < ps.length; i++){
+		// 	ps[i].style.fill = "#0f0";
+		// 	ps[i].style.stroke ="#98FB98";
+		// }
+		
+    </script>  
+</body>  
+  
+</html>
