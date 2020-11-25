@@ -43,6 +43,10 @@
 					else if (action == "add") {
 						parent.children.splice(i + 1, 0, data)
 					}
+					else if(action == "edit"){
+						parent.children[i].name = data.name;
+						parent.children[i].value = data.value;
+					}
 					// console.log("model:", children)
 					return;
 				}
@@ -59,8 +63,14 @@
 		var x0 = 0;
 		var y0 = 0;
 		let data = ''
+		let gap_click = ''
+		let edit = false
 		const draw = function () {
-			removeSVG()
+			removeSVG();
+			$(document).ready(function(){
+					$("#itemName").attr("value",'');
+					$("#itemValue").attr("value",'');
+				});
 			var chart = new SBChart(cx, cy, 100); // center coords and radius of each level
 			// bind data into the chart
 			chart.bind(model);
@@ -173,6 +183,7 @@
 
 						}
 					}
+					
 					x0 = 0;
 					y0 = 0;
 					chosenSector = ''
@@ -180,6 +191,10 @@
 					data = ''
 
 				})
+				.on("contextmenu", function (d, i) {
+						d3.event.preventDefault();
+					// react on right-clicking
+					})
 				.append("g")
 				.attr("transform", "translate(" + cx + "," + cy + ")");; // transition to cx, cy 
 
@@ -195,7 +210,7 @@
 						.attr("id", arc.name)
 						.attr("class", "arc") // set style name as "arc"
 						.attr("d", arc.item)
-						.on('mousedown', function () {
+						.on('mousedown', function (event) {
 							chosenSector = arc.name
 							console.log('chosenSector: ' + chosenSector);
 						})
@@ -203,6 +218,10 @@
 						.attr("endAngle", arc.endAngle)
 						.style("fill", "#9ad3bc")
 						.style("stroke", "#f3eac2")
+						.on("contextmenu", function (d, i) {
+							d3.event.preventDefault();
+						// react on right-clicking
+						});
 						;
 					var label = d3.arc()
 						.outerRadius(arc.outerRadius)
@@ -235,6 +254,7 @@
 			for (let i = 0; i < chart.arcs.length; i++) {
 				let arc = chart.arcs[i];
 				if (arc.name.slice(0, 5) == "blank") {
+					
 					svg.append("path")
 						.attr("id", arc.name)
 						.attr("class", "blank") // set style name as "arc"
@@ -242,8 +262,13 @@
 						.on('mouseup', function () {
 							sector = arc.name
 						})
+						
 						.on('mousedown', function () {
 							// open modal
+						// 	$(document).ready(function(){
+    					// 	$("#itemName").attr("value", arc.name);
+						// });
+							gap_click = arc.name.slice(5)
 							console.log('arc.name: ' + arc.name);
 							$('#btnOpenAddItemModal').click();
 						})
@@ -251,9 +276,44 @@
 						.attr("endAngle", arc.endAngle)
 						.style("fill", "#f3eac2")
 					// .style("stroke","#000")
+					
 				}
 			}
+			$('.arc').mousedown(function(event) {
+				switch (event.which) {
+					case 1:
+						// alert('Left Mouse button pressed.');
+						break;
+					case 2:
+						// alert('Middle Mouse button pressed.');
+						break;
+					case 3:
+						isDown = false;
+						for (let i = 0; i < chart.arcs.length; i++) {
+							let arc = chart.arcs[i];
+							if(arc.name == chosenSector){
+								edit = true
+								$(document).ready(function(){
+									$("#itemName").attr("value", arc.name);
+									$("#itemValue").attr("value", arc.value);
+								});
+								$('#btnOpenAddItemModal').click();
+								break;
+							}
+						}
+						
+					default:
+						// alert('You have a strange Mouse!');
+				}
+			});
+			
+
 		}
+		$(document).ready(function() {
+				$("body").on("contextmenu",function(){
+				return false;
+				}); 
+			}); 
 		draw()
 		// this.findSector = function(x,y){
 		// 	deltax = x - cx;
@@ -289,11 +349,24 @@
 		function ok() {
 			let name = $('#itemName').val();
 			let value = $('#itemValue').val();
-
-			alert(name + ' - ' + value);
+			itemAdd = {
+				"name" : name,
+				"value" : value
+			}
+			if(edit ==false){
+				traverse(model,gap_click,'add',itemAdd);
+			}
+			else{
+				traverse(model,chosenSector,'edit',itemAdd);
+				edit = false;
+			}
+			alert("Success");
+			chosenSector = ''
 			// to be cobtinued
+			draw()
 		}
-		//#endregion		
+		//#endregion	
+		
 	</script>
 
 	<!-- AddItemModal - START -->
@@ -306,7 +379,7 @@
 			<div class="modal-content">
 				<div class="modal-header">
 					<button type="button" class="close" data-dismiss="modal">&times;</button>
-					<h4 class="modal-title text-center">Add new item</h4>
+					<h4 class="modal-title text-center">Add/Edit item</h4>
 				</div>
 				<div class="modal-body">
 					<form id="form" autocomplete="off">
